@@ -17,23 +17,31 @@ app.get('/proxy', async (req, res) => {
   let targetHost = ''
   try { targetHost = new URL(targetUrl).hostname } catch(e) { return res.status(400).send('Invalid URL') }
 
+  // Headers base
   const headers = {
-    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     'Accept': '*/*',
     'Accept-Language': 'it-IT,it;q=0.9',
-    'Origin': 'https://www.mediasetplay.mediaset.it',
-    'Referer': 'https://www.mediasetplay.mediaset.it/',
   }
 
-  if (targetHost.includes('rai.it') || targetHost.includes('akamaized.net')) {
+  // RAI — User-Agent Apple TV obbligatorio
+  if (targetHost.includes('rai.it') || (targetHost.includes('akamaized.net') && targetUrl.includes('rai'))) {
     headers['User-Agent'] = 'AppleCoreMedia/1.0.0.19H12 (Apple TV; U; CPU OS 15_6 like Mac OS X; it_it)'
-    delete headers['Origin']
-    delete headers['Referer']
   }
-
-  if (targetHost.includes('skycdn.it')) {
-    headers['Origin'] = 'https://www.sky.it'
+  // Mediaset
+  else if (targetHost.includes('mediaset.net')) {
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    headers['Origin']  = 'https://www.mediasetplay.mediaset.it'
+    headers['Referer'] = 'https://www.mediasetplay.mediaset.it/'
+  }
+  // Sky
+  else if (targetHost.includes('skycdn.it') || targetHost.includes('akamaized.net')) {
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    headers['Origin']  = 'https://www.sky.it'
     headers['Referer'] = 'https://www.sky.it/'
+  }
+  // Default
+  else {
+    headers['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
   }
 
   try {
@@ -45,15 +53,12 @@ app.get('/proxy', async (req, res) => {
       const base = targetUrl.substring(0, targetUrl.lastIndexOf('/') + 1)
       const proxyBase = `${req.protocol}://${req.get('host')}/proxy?url=`
 
-      // Riscrive path relativi .m3u8
       body = body.replace(/^(?!#)(?!https?:\/\/)(.+\.m3u8[^\s]*)$/gm, (match) => {
         return proxyBase + encodeURIComponent(new URL(match.trim(), base).href)
       })
-      // Riscrive URL assoluti .m3u8
       body = body.replace(/^(https?:\/\/.+\.m3u8[^\s]*)$/gm, (match) => {
         return proxyBase + encodeURIComponent(match.trim())
       })
-      // Riscrive path relativi .ts (segmenti video)
       body = body.replace(/^(?!#)(?!https?:\/\/)(.+\.ts[^\s]*)$/gm, (match) => {
         return new URL(match.trim(), base).href
       })
@@ -71,6 +76,6 @@ app.get('/proxy', async (req, res) => {
 })
 
 app.get('/health', (_, res) => res.send('OK'))
-app.get('/',      (_, res) => res.send('Mediaset Proxy attivo'))
+app.get('/', (_, res) => res.send('Mediaset Proxy v2 attivo'))
 
-app.listen(PORT, () => console.log('Proxy avviato porta', PORT))
+app.listen(PORT, () => console.log('Proxy v2 avviato porta', PORT))
